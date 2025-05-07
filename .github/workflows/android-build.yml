@@ -35,8 +35,15 @@ jobs:
           for n in $(./gradlew projects | grep "^ *[+|]*--- Project ':samples:" | sed "s/.*':samples:\([^']*\)'.*/\1/"); do
             echo "Building $n ..."
             ./gradlew :samples:$n:assembleDebug
-            cp "samples/$n/app/build/outputs/apk/debug/app-debug.apk" "${n}-debug.apk"
+            APK_PATH=$(find samples/$n -name app-debug.apk | head -n1)
+            if [ -f "$APK_PATH" ]; then
+              cp "$APK_PATH" "${n}-debug.apk"
+              echo "Copied $APK_PATH"
+            else
+              echo "APK not found for $n"
+            fi
           done
+          ls -lh *-debug.apk || echo "No renamed APKs found"
 
       - name: Upload all APKs as artifacts (renamed)
         uses: actions/upload-artifact@v4

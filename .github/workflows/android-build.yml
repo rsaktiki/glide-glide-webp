@@ -1,152 +1,45 @@
-name: Build Android APK with Glide WebP
+name: Build & Upload All Sample APKs
 
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
-    name: Auto Build APK with Glide 4.16.0
     runs-on: ubuntu-latest
-
-    env:
-      ANDROID_HOME: $HOME/android-sdk
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout project
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
 
-    - name: Set up Android SDK
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-        unzip -q tools.zip
-        # Handle nama folder hasil unzip (cmdline-tools/tools)
-        if [ -d cmdline-tools ]; then
-          mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-        elif [ -d tools ]; then
-          mv tools $ANDROID_HOME/cmdline-tools/latest
-        fi
-        ls -l $ANDROID_HOME/cmdline-tools/latest     # Debug cek bin/
-        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-    - name: Accept Licenses and Install Build Tools
-      run: |
-        yes | sdkmanager --sdk_root=${ANDROID_HOME} --licenses
-        sdkmanager --sdk_root=${ANDROID_HOME} "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+      - name: Build all sample APKs
+        run: |
+          for sample in samples/*; do
+            if [ -d "$sample" ]; then
+              ./gradlew :$sample:assembleDebug
+            fi
+          done
 
-    - name: Create Android project with Glide
-      run: |
-        mkdir -p MyApp/app/src/main/java/com/example/myapp
-        mkdir -p MyApp/app/src/main/res/layout
-
-        cat > MyApp/settings.gradle <<EOF
-        rootProject.name = 'MyApp'
-        include ':app'
-        EOF
-
-        cat > MyApp/build.gradle <<EOF
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.1'
-            }
-        }
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        EOF
-
-        cat > MyApp/app/build.gradle <<EOF
-        plugins {
-            id 'com.android.application'
-            id 'kotlin-android'
-        }
-        android {
-            compileSdk 33
-            defaultConfig {
-                applicationId "com.example.myapp"
-                minSdk 21
-                targetSdk 33
-                versionCode 1
-                versionName "1.0"
-            }
-            buildTypes {
-                release {
-                    minifyEnabled false
-                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                }
-            }
-        }
-        dependencies {
-            implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.github.bumptech.glide:glide:4.16.0'
-            annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
-            implementation 'com.github.bumptech.glide:okhttp3-integration:4.16.0'
-            implementation 'com.github.bumptech.glide:webpdecoder:4.16.0'
-        }
-        EOF
-
-        cat > MyApp/app/src/main/AndroidManifest.xml <<EOF
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-            package="com.example.myapp">
-            <application
-                android:allowBackup="true"
-                android:label="MyApp"
-                android:supportsRtl="true"
-                android:theme="@android:style/Theme.Material.Light">
-                <activity android:name=".MainActivity">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOF
-
-        cat > MyApp/app/src/main/java/com/example/myapp/MainActivity.kt <<EOF
-        package com.example.myapp
-
-        import android.os.Bundle
-        import android.widget.ImageView
-        import androidx.appcompat.app.AppCompatActivity
-        import com.bumptech.glide.Glide
-
-        class MainActivity : AppCompatActivity() {
-            override fun onCreate(savedInstanceState: Bundle?) {
-                super.onCreate(savedInstanceState)
-                val imageView = ImageView(this)
-                setContentView(imageView)
-
-                Glide.with(this)
-                    .load("https://www.gstatic.com/webp/gallery/1.webp")
-                    .into(imageView)
-            }
-        }
-        EOF
-
-    - name: Build APK
-      run: |
-        cd MyApp
-        ./gradlew assembleDebug
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: MyApp-GlideWebP-debug
-        path: MyApp/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload all APKs as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: glide-sample-apks
+          path: |
+            samples/*/app/build/outputs/apk/debug/app-debug.apk

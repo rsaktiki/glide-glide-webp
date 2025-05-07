@@ -33,11 +33,9 @@ jobs:
         run: |
           set -e
           for f in samples/*/app/build.gradle*; do
-            d=$(dirname $(dirname "$f"))    # ambil folder samples/NAMA
-            n=$(basename $d)                # ambil nama sample
+            n=$(echo $f | cut -d'/' -f2)
             echo "Building $n ..."
             ./gradlew :samples:$n:assembleDebug
-            # Rename agar artifact jelas
             cp "samples/$n/app/build/outputs/apk/debug/app-debug.apk" "${n}-debug.apk"
           done
 

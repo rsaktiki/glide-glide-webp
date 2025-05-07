@@ -1,13 +1,13 @@
-name: Build Glide Library
+name: Create and Build Android Project with Glide
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
-  build:
+  setup-and-build:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,16 +20,33 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v3
+    - name: Set up Android SDK
+      run: |
+        wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip
+        unzip commandlinetools-linux-7583922_latest.zip -d $HOME/android-sdk
+        export ANDROID_HOME=$HOME/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3"
 
-    - name: Build with Gradle
-      run: ./gradlew build
+    - name: Create Android Project
+      run: |
+        mkdir MyAndroidApp
+        cd MyAndroidApp
+        gradle init --type android-application
 
-    - name: Upload AAR artifact
+    - name: Add Glide Dependency
+      run: |
+        cd MyAndroidApp
+        echo "dependencies {\n    implementation 'com.github.bumptech.glide:glide:4.15.0'\n    annotationProcessor 'com.github.bumptech.glide:compiler:4.15.0'\n}" >> app/build.gradle
+
+    - name: Build APK
+      run: |
+        cd MyAndroidApp
+        ./gradlew assembleDebug
+
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: glide-aar
-        path: |
-          **/build/outputs/aar/*.aar
-          **/build/libs/*.jar
+        name: debug-apk
+        path: MyAndroidApp/app/build/outputs/apk/debug/app-debug.apk

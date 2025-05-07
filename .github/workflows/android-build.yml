@@ -29,17 +29,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Build all sample APKs
+      - name: Build all valid sample APKs
         run: |
-          for sample in samples/*; do
-            if [ -d "$sample" ]; then
-              ./gradlew :$sample:assembleDebug
-            fi
+          set -e
+          for f in samples/*/app/build.gradle*; do
+            d=$(dirname $(dirname "$f"))    # ambil folder samples/NAMA
+            n=$(basename $d)                # ambil nama sample
+            echo "Building $n ..."
+            ./gradlew :samples:$n:assembleDebug
+            # Rename agar artifact jelas
+            cp "samples/$n/app/build/outputs/apk/debug/app-debug.apk" "${n}-debug.apk"
           done
 
-      - name: Upload all APKs as artifacts
+      - name: Upload all APKs as artifacts (renamed)
         uses: actions/upload-artifact@v4
         with:
           name: glide-sample-apks
-          path: |
-            samples/*/app/build/outputs/apk/debug/app-debug.apk
+          path: ./*-debug.apk

@@ -29,13 +29,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Build all valid sample APKs
+      - name: Build all registered sample APKs
         run: |
           set -e
-          for f in samples/*/app/build.gradle*; do
-            n=$(echo $f | cut -d'/' -f2)
-            echo "Building $n ..."
-            ./gradlew :samples:$n:assembleDebug
+          ./gradlew projects | grep 'samples:' | awk '{print $2}' | while read -r module; do
+            n=$(echo $module | cut -d':' -f3)
+            echo "Building $module ($n) ..."
+            ./gradlew :$module:assembleDebug
             cp "samples/$n/app/build/outputs/apk/debug/app-debug.apk" "${n}-debug.apk"
           done
 

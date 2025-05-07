@@ -1,4 +1,4 @@
-name: Build Android APK with Glide WebP fck
+name: Build Android APK with Glide WebP
 
 on:
   push:
@@ -27,19 +27,19 @@ jobs:
         mkdir -p $ANDROID_HOME/cmdline-tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
         unzip -q tools.zip
-        mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        # Handle nama folder hasil unzip (cmdline-tools/tools)
+        if [ -d cmdline-tools ]; then
+          mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        elif [ -d tools ]; then
+          mv tools $ANDROID_HOME/cmdline-tools/latest
+        fi
+        ls -l $ANDROID_HOME/cmdline-tools/latest     # Debug cek bin/
         echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
 
     - name: Accept Licenses and Install Build Tools
       run: |
-        sdkmanager --sdk_root=${ANDROID_HOME} --licenses <<EOF
-        y
-        y
-        y
-        y
-        y
-        EOF
+        yes | sdkmanager --sdk_root=${ANDROID_HOME} --licenses
         sdkmanager --sdk_root=${ANDROID_HOME} "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
     - name: Create Android project with Glide

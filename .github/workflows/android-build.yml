@@ -2,9 +2,9 @@ name: Create and Build Android Project with Glide
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   setup-and-build:

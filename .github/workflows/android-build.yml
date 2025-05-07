@@ -29,20 +29,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Build all registered sample APKs
+      - name: Build all registered sample APKs and collect results
         run: |
           set -e
+          echo "== BUILDING ALL SAMPLES =="
           for n in $(./gradlew projects | grep "^ *[+|]*--- Project ':samples:" | sed "s/.*':samples:\([^']*\)'.*/\1/"); do
+            echo "=============================="
             echo "Building $n ..."
             ./gradlew :samples:$n:assembleDebug
-            APK_PATH=$(find samples/$n -name app-debug.apk | head -n1)
+            echo "Searching APK for $n ..."
+            APK_PATH=$(find samples/$n -type f -name "*.apk" | head -n1)
             if [ -f "$APK_PATH" ]; then
               cp "$APK_PATH" "${n}-debug.apk"
-              echo "Copied $APK_PATH"
+              echo "Copied $APK_PATH as ${n}-debug.apk"
             else
-              echo "APK not found for $n"
+              echo "❗ APK not found for $n"
             fi
           done
+          echo "== LISTING ALL COLLECTED APKs =="
           ls -lh *-debug.apk || echo "No renamed APKs found"
 
       - name: Upload all APKs as artifacts (renamed)

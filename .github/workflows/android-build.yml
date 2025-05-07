@@ -1,20 +1,23 @@
-name: Create and Build Android Project with Glide
+# .github/workflows/android-glide-webp.yml
+name: Build Android APK with Glide WebP
 
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
-  setup-and-build:
+  build:
+    name: Auto Build APK with Glide
     runs-on: ubuntu-latest
+
+    env:
+      ANDROID_HOME: $HOME/android-sdk
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set up JDK
+    - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
@@ -22,31 +25,119 @@ jobs:
 
     - name: Set up Android SDK
       run: |
-        wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip
-        unzip commandlinetools-linux-7583922_latest.zip -d $HOME/android-sdk
-        export ANDROID_HOME=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip cmdline-tools.zip
+        mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
+
+    - name: Install SDK packages
+      run: |
         yes | sdkmanager --licenses
-        sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3"
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-    - name: Create Android Project
+    - name: Create Android project with Glide
       run: |
-        mkdir MyAndroidApp
-        cd MyAndroidApp
-        gradle init --type android-application
+        mkdir -p MyApp/app/src/main/java/com/example/myapp
+        mkdir -p MyApp/app/src/main/res/layout
 
-    - name: Add Glide Dependency
-      run: |
-        cd MyAndroidApp
-        echo "dependencies {\n    implementation 'com.github.bumptech.glide:glide:4.15.0'\n    annotationProcessor 'com.github.bumptech.glide:compiler:4.15.0'\n}" >> app/build.gradle
+        cat > MyApp/settings.gradle <<EOF
+        rootProject.name = 'MyApp'
+        include ':app'
+        EOF
+
+        cat > MyApp/build.gradle <<EOF
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:8.1.1'
+            }
+        }
+        allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        EOF
+
+        cat > MyApp/app/build.gradle <<EOF
+        plugins {
+            id 'com.android.application'
+        }
+        android {
+            compileSdk 33
+            defaultConfig {
+                applicationId "com.example.myapp"
+                minSdk 21
+                targetSdk 33
+                versionCode 1
+                versionName "1.0"
+            }
+            buildTypes {
+                release {
+                    minifyEnabled false
+                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                }
+            }
+        }
+        dependencies {
+            implementation 'com.github.bumptech.glide:glide:4.16.0'
+            annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+        }
+        EOF
+
+        cat > MyApp/app/src/main/AndroidManifest.xml <<EOF
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+            package="com.example.myapp">
+
+            <application
+                android:allowBackup="true"
+                android:label="MyApp"
+                android:supportsRtl="true"
+                android:theme="@android:style/Theme.Material.Light">
+                <activity android:name=".MainActivity">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        cat > MyApp/app/src/main/java/com/example/myapp/MainActivity.kt <<EOF
+        package com.example.myapp
+
+        import android.os.Bundle
+        import android.widget.ImageView
+        import androidx.appcompat.app.AppCompatActivity
+        import com.bumptech.glide.Glide
+
+        class MainActivity : AppCompatActivity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+
+                val imageView = ImageView(this)
+                setContentView(imageView)
+
+                Glide.with(this)
+                    .load("https://www.gstatic.com/webp/gallery/1.webp")
+                    .into(imageView)
+            }
+        }
+        EOF
 
     - name: Build APK
       run: |
-        cd MyAndroidApp
+        cd MyApp
         ./gradlew assembleDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: debug-apk
-        path: MyAndroidApp/app/build/outputs/apk/debug/app-debug.apk
+        name: MyApp-GlideWebP-debug
+        path: MyApp/app/build/outputs/apk/debug/app-debug.apk
